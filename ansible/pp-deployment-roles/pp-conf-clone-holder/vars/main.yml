@@ -1,0 +1,6 @@
+---
+punchplatform_admin_user: lmcadmin
+punchplatform_admin_group: lmc
+punchplatform_user_conf_dir: "/home/{{punchplatform_admin_user}}/soc_conf"
+punchplatform_applicable_conf_file: "{{punchplatform_user_conf_dir}}/platforms/{{punchplatform_platform_dirname}}/{{punchplatform_platform_dirname}}_punchplatform.properties"
+

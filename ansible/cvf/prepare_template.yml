@@ -1,0 +1,77 @@
+---
+#playbook for initializing a template .
+# Manual typical prerequisites
+# - interface enp0s8 (Ubuntu 16) added as auto dhcp in /etc/network/interfaces
+# - sudo apt-get install ssh python aptitude
+
+# USAGE : ansible-playbook -i template.inv prepare_template.yml --ask-sudo-pass -u <ubuntuSudoerLogin>
+
+# the purpose is 
+# - to turn sudo passwordless (first call, you will have to use --ask-sudo-pass)
+# - to remove mention of 127.0.1.1 from /etc/hosts
+#  
+# - to register host apt-cacher-ng as source repository
+# (optionally) - to deploy standard LMC prerequisites to ease deployment
+
+- hosts: template
+  become: true
+  handlers:
+    - name: reload ssh
+      service: name=ssh state=reloaded
+  tasks:
+    - name: remove password for sudo
+      lineinfile: 
+        dest: /etc/sudoers 
+        regexp: "^%sudo"
+        line: "%sudo   ALL=(ALL:ALL) NOPASSWD: ALL"
+
+    - name: install apt proxy (host apt-cacher-ng)
+      lineinfile:
+        dest: /etc/apt/conf.d/03proxy
+        regexp: "{{item}}::proxy"
+        line: 'Acquire::{{item}}::proxy "http://192.168.56.1:3142";'
+        create: true
+      with_items:
+        - http
+        - https
+
+    - name: update and upgrade system
+      apt: update_cache=true cache_valid_time=5184000 upgrade=full
+
+    
+    - name: move hostname to 127.0.0.1
+      lineinfile:
+        dest: /etc/hosts
+        regexp: "^127\\.0\\.0\\.1"
+        line: "127.0.0.1 localhost ubuntu"
+
+    - name: remove 127.0.1.1 from /etc/hosts
+      lineinfile:
+        dest: /etc/hosts
+        regexp: "127\\.0\\.1\\.1"
+        state: absent
+
+    - name: install openjdk 8
+      apt: name=openjdk-8-jdk-
+      tags:
+        - lmc-prerequisites
+
+    - name: install LMC prerequisites
+      tags:
+        - lmc-prerequisites
+      apt: name="{{item}}"
+      with_items:
+        - curl
+        - jq
+        - python-pip
+        - python-virtualenv
+        - unzip
+        - git-core
+
+    - name: remove DNS check from ssh
+      lineinfile:
+        dest: /etc/ssh/sshd_config
+        line: "UseDNS no"
+        regexp: "^UseDNS"
+      notify: reload ssh
+

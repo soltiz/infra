@@ -1,0 +1,5 @@
+{% for host in groups[targets_ansible_group] %}
+Host {{host}}
+    IdentityFile = ~/.ssh/lmc-deployer
+    BatchMode = yes
+{% endfor %}

@@ -1,0 +1,30 @@
+---
+#Tasks for lmc-confref-holder role
+
+- name: create directory to hold configuration bare reference repository
+  file: state=directory dest={{remote_repository_dir}} owner={{punchplatform_deployment_user}} group={{punchplatform_users_group}}
+  become: True
+
+- name: create bare reference configuration repository
+  command: git init --bare "{{remote_repository_dir}}" creates="{{remote_repository_dir}}/HEAD"
+  become: yes
+  become_user: "{{punchplatform_deployment_user}}"
+
+- name: configure remote reference repository for shared usage using lmc group
+  git_config: name=core.sharedRepository value=group repo={{remote_repository_dir}} scope=local
+  become: yes
+  become_user: "{{punchplatform_deployment_user}}"
+
+- name: ensure remote default branch is set in bare repository
+  copy: 
+    dest: "{{remote_repository_dir}}/HEAD"
+    content: 'ref: refs/heads/{{pp_conf_branch}}'
+    owner: '{{punchplatform_deployment_user}}'
+  become: yes
+  become_user: "{{punchplatform_deployment_user}}"
+
+- name: ensure remote reference configuration is owned by lmc group
+  file: dest={{remote_repository_dir}} owner={{punchplatform_deployment_user}} group={{punchplatform_users_group}} mode=g+rw recurse=yes
+  become: yes
+
+

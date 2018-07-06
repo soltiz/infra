@@ -1,0 +1,21 @@
+---
+# Tasks for nfs server role
+
+
+- name: install nfs server packages
+  apt: name=nfs-kernel-server
+
+- name: ensure exported directory exists
+  file: name={{nfs_export_path}} state=directory
+
+- name:
+  lineinfile: 
+    name: /etc/exports 
+    line: "{{nfs_export_path}}{% for machine in nfs_export_allowed_hosts%} {{machine}}(rw,sync,no_subtree_check,no_root_squash){%endfor%}"
+    regexp: "^{{nfs_export_path}}"
+  notify: reload nfs server
+
+- name: apply exports
+  shell: exportfs -a
+  changed_when: false
+

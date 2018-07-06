@@ -1,0 +1,45 @@
+[vb_vms:children]
+lmc_servers
+
+[lmc_servers:children]
+lmc_deployers
+lmc_targets
+
+[lmc_deployers]
+ansible vm_memory=1000 vm_nbcpu=1
+
+[lmc_targets]
+lmc1 vm_memory=10000
+ceph1 vm_memory=1000
+ceph2 vm_memory=1000
+ceph3 vm_memory=1000
+
+[vb_vms:vars]
+vb_template="LMCUbuntu16"
+network_range="192.168.56.101-140"
+ansible_user=adm-infra
+ubuntu_repository_url="http://192.168.56.1:3142/ubuntu"
+
+
+[lmc_servers:vars]
+punchplatform_platform_dirname=demo-ceph
+http_proxy=http://192.168.56.1:3128
+mono_hostname=lmc1
+remote_repository_dir=/data/git/soc_ref
+punchplatform_deployment_user=adm-infra
+punchplatform_users_group=lmc
+production_interface=enp0s8
+pp_log_resources_repository=/home/cedric/lmc/pp-log-resources
+pp_conf_branch=production
+# cluster_public_ip=192.168.56.222
+ceph_production_network=192.168.56.0/24
+ceph_transport_network=192.168.56.0/24
+ceph_fsid=b5ee2a02-b92c-4829-8d43-0eb17314c0f7
+ceph_device=/dev/sdb1
+
+[lmc_deployers:vars]
+punchplatform_local_deployer_archive=/home/cedric/lmc/pp-packaging/punchplatform-packaging/punchplatform-deployer/target/punchplatform-deployer-3.0.22-SNAPSHOT.zip
+punchplatform_admin_service_version=0.1.22
+
+
+

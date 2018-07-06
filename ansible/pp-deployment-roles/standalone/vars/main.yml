@@ -1,0 +1,13 @@
+---
+# Vars for standalone role
+
+
+
+punchplatform_install_container: "/home/{{punchplatform_user}}"
+standalone_archive_basename: "{{punchplatform_standalone_archive | basename}}"
+standalone_version: "{{ (standalone_archive_basename | splitext ) [0] }}"
+installed_dir: "{{punchplatform_install_container}}/{{standalone_version}}"
+punchplatform_successful_unpack_marker:  "{{installed_dir}}/.unpack-marker"
+punchplatform_archive: "{{archives_dir}}/{{standalone_archive_basename}}"
+punchplatform_remote_distrib: "/tmp/{{standalone_archive_basename}}"
+standalone_install_options: 'standalone_install_options | default("--no-grafana --no-metricbeat --no-kibana4 --bind-to-all-interfaces")'

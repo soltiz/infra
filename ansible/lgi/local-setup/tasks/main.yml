@@ -1,0 +1,15 @@
+---
+# Tasks to deploy ceph, using ceph-deploy utility
+
+
+# We have to copy hostnames-IP into /etc/hosts of adminNode.
+# Be careful: it's possible here only if /tmp/resolved_ips exists !!!
+# (So only if vm-vm role has been played before)
+- name: Add/Update mappings to /etc/hosts
+  become: yes
+  become_user: root
+  blockinfile:
+    dest: /etc/hosts
+    block: |
+      {{ myhosts }}
+    marker: "# {mark} ANSIBLE MANAGED BLOCK : Ceph Hostnames"

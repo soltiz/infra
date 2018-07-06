@@ -1,0 +1,55 @@
+[vb_vms]
+#dummy vm_memory=1000 vm_nbcpu=1
+
+[vb_vms:children]
+lmc_servers
+
+[lmc_servers:children]
+lmc_deployers
+lmc_targets
+
+
+[lmc_deployers]
+ansible vm_memory=1000 vm_nbcpu=1
+
+
+[lmc_targets]
+main vm_memory=10000 vm_nbcpu=3
+shiva vm_memory=1000 vm_nbcpu=1
+admin  vm_memory=4000 vm_nbcpu=3
+
+[vb_vms:vars]
+vb_template="LMCUbuntu16"
+network_range="192.168.56.125-140"
+ubuntu_repository_url="http://192.168.56.1:3142/ubuntu"
+production_interface=enp0s8
+
+
+[metrics_pushers:children]
+metricbeat_pushers
+
+[metricbeat_pushers]
+shiva
+#dummy
+
+
+[metricbeat_pushers:vars]
+metricbeat_reporting_interval=30
+punchplatform_daemons_user=monitoring
+punchplatform_group=pp
+
+[lmc_servers:vars]
+punchplatform_platform_dirname=shiva
+http_proxy=http://192.168.56.1:3128
+conf_ref_holder_hostname=admin
+remote_repository_dir=/data/git/soc_ref
+punchplatform_deployment_user=adm-infra
+punchplatform_users_group=lmc
+production_interface=lo
+#production_interface=enp0s8
+pp_log_resources_repository=/home/cedric/lmc/pp-log-resources
+pp_conf_branch=master
+
+[lmc_deployers:vars]
+punchplatform_local_deployer_archive=/home/cedric/lmc/pp-packaging/punchplatform-packaging/punchplatform-deployer/target/punchplatform-deployer-3.2.10.zip
+punchplatform_admin_service_version=1.1.2

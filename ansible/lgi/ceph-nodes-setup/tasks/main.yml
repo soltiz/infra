@@ -1,0 +1,21 @@
+---
+# Tasks to setup ceph nodes
+
+- name: Install NTP
+  become: yes
+  apt: name=ntp
+
+- name: Configure NTP
+  become: yes
+  template: src=ntp.conf.j2 dest=/etc/ntp.conf mode=0644 owner=root group=root
+  notify: restart ntp
+
+# We don't install SSH server and Ceph user because it's already done
+# (Done in the VM template manually)
+# For the same reason, password-less ssh enabling, networking enabling
+# and ports opening are already done.
+
+# Deploy admin node ssh public key (admin node has to connect
+# to each node without password)
+- name: deploy admin node public key
+  copy: src=authorized_keys dest=~/.ssh/ mode=0600

@@ -1,0 +1,32 @@
+[vms:children]
+admins
+osds
+mons
+clients
+
+[admins]
+cAdminNode
+
+[osds]
+cNode1
+cNode2
+cNode3
+
+[mons]
+cNode1
+cNode2
+cNode3
+
+[clients]
+cClient
+
+[vms:vars]
+vb_template = "TemplateCeph"
+network_range = "10.0.3.2-253"
+ntp_server = "10.0.3.1"
+
+[admins:vars]
+web_proxy = "http://10.0.3.1:3128/"
+ceph_stable_release = "kraken"
+ubuntu_release = "xenial"
+mainMonitor = "cNode1"

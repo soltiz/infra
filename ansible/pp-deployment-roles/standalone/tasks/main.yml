@@ -1,0 +1,51 @@
+--- 
+# Tasks for deploying a remote standalone
+
+- name: install required packages
+  apt: name={{item}}
+  become: true
+  tags:
+    - prerequisites
+  with_items:
+    - curl
+    - jq
+    - unzip
+    - python-pip
+    - python-virtualenv
+    - git-core
+
+
+- name: check if remote punchplatform distrib version marker indicates a previous successful unpacking (this is an optimization to prevent uploading if unarchiving of same version has already succeeded)
+  shell: "cat {{punchplatform_successful_unpack_marker}} 2>/dev/null"
+  register: check_result
+  changed_when: False
+  failed_when: False
+  always_run: True
+
+- name: upload punchplatform distrib 
+  copy:
+    src: "{{punchplatform_standalone_archive}}"
+    dest: "{{punchplatform_remote_distrib}}"
+  when: check_result.stdout != standalone_version
+  
+- name: unarchive punchplatform distrib 
+  shell: unzip -o "{{punchplatform_remote_distrib}}" -d "{{punchplatform_install_container}}"
+  when: check_result.stdout != standalone_version
+  register: unarchive_result
+
+
+- name: mark punchplatform archive successful unpacking to avoid any new unarchiving 
+  copy: dest={{punchplatform_successful_unpack_marker}} content={{standalone_version}}
+  when: unarchive_result|success
+
+- name: remove remote copy of distribution if it has already been successfully inarchived
+  file: dest="{{punchplatform_remote_distrib}}" state=absent
+  when: ( unarchive_result|success ) or (check_result.stdout == standalone_version)
+
+
+- name: run punchplatform standalone setup
+  command: "bash -cli './install.sh -s --non-interactive {{standalone_install_options}}'" 
+  args:
+   chdir: "{{installed_dir}}"
+   creates: "{{installed_dir}}/.installed"
+

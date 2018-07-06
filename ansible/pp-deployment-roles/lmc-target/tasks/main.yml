@@ -1,0 +1,22 @@
+---
+#tasks for a LMC deployment target
+- name: prerequisites for ansible deployment
+  apt: name={{item}}
+  with_items:
+    - python-apt
+
+- name: setup deployment ssh key
+  authorized_key: key="{{ lookup('file', "../../lmc-deployer/files/lmc-deployer.pub") }}" user={{punchplatform_deployment_user}}
+
+
+#- name: create /data directory
+#  file: dest=/data state=directory
+#  become: True
+
+#- name: create installation directory (/data/opt)
+#  file: dest=/data/opt state=directory
+#  become: True
+  
+- name: create application administrator account (lmcadmin)
+  user: name=adm-infra
+  become: True

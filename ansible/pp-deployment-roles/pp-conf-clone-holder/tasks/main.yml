@@ -1,0 +1,10 @@
+---
+
+
+- name: create user clone of reference repository
+  git: repo={{remote_repository_dir}} dest={{punchplatform_user_conf_dir}} update=yes accept_hostkey=yes version={{pp_conf_branch | default("master")}}
+  sudo_user: "{{punchplatform_admin_user}}"
+
+
+- name: "ensure platform-dependent configuration link points on appropriate punchplatform properties file"
+  file: dest={{punchplatform_user_conf_dir}}/punchplatform.properties state=link force=yes owner={{punchplatform_admin_user}} group={{punchplatform_admin_group}} src={{punchplatform_applicable_conf_file}}

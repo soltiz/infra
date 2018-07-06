@@ -1,0 +1,23 @@
+---
+# Tasks to deploy ceph-deploy on administration nodes
+
+- name: Add the release key
+  become: yes
+  apt_key: url=https://download.ceph.com/keys/release.asc state=present
+  environment:
+    http_proxy: "{{ web_proxy }}"
+    https_proxy: "{{ web_proxy }}"
+
+- name: Add Ceph repository to repositories list
+  become: yes
+  apt_repository: repo='deb https://download.ceph.com/debian-{{ ceph_stable_release }}/ {{ ubuntu_release }} main' state=present
+
+- name: Update repository and install ceph-deploy
+  become: yes
+  apt: name=ceph-deploy update_cache=yes
+
+- name: Set admin ssh keys
+  copy: src={{ item.src }} dest=~/.ssh/ mode={{ item.mode }}
+  with_items:
+    - { src: "id_rsa.pub", mode: "0644" }
+    - { src: "id_rsa", mode: "0600" }

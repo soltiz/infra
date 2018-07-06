@@ -1,0 +1,30 @@
+
+# First we boot the vms
+
+- hosts: vms
+  gather_facts: no
+  tags: "infra"
+  roles:
+    - vb-vm
+
+- hosts: 127.0.0.1
+  connection: local
+  user: leo
+  tags: "infra"
+  roles:
+    - local-setup
+
+- hosts: admins
+  tags: "preflight"
+  roles:
+    - ceph-deploy-setup
+
+- hosts: vms
+  tags: "preflight"
+  roles:
+    - ceph-nodes-setup
+
+- hosts: admins
+  tags: deploy
+  roles:
+    - ceph-deploy

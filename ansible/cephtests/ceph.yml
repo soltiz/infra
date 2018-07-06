@@ -1,0 +1,27 @@
+---
+- hosts: vb-vms
+  gather_facts: no
+  roles: 
+    - vb-vm
+
+- hosts: ceph-nodes 
+  roles:
+   - full-updated-apt
+
+- hosts: ceph-admin-nodes
+  tags: ceph_admin
+  become: yes
+  roles:
+   - ceph-admin-node
+
+- hosts: ceph-monitors
+  tags: ceph_mon
+  become: yes
+  roles:
+   - ceph-monitor
+
+- hosts: ceph-storage-nodes
+  tags: ceph_osd
+  become: yes
+  roles:
+   - ceph-storage-node

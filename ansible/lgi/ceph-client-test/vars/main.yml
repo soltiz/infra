@@ -1,0 +1,17 @@
+---
+
+ceph_cluster: "{{ ceph_clusters[ceph_cluster_name] }}"
+ceph_clients: "{{ ceph_cluster['clients'] }}"
+
+ceph_image: foo
+ceph_device: /dev/rbd/rbd/{{ ceph_image }}
+ceph_mount_path: /mnt/ceph-block-device
+ceph_keyring: /etc/ceph/{{ ceph_cluster_name }}.client.admin.keyring
+
+ceph_object_file: /tmp/myfile
+ceph_object_value: myvalue
+ceph_object_name: myobject
+
+ceph_ec_object_file: /tmp/myecfile
+ceph_ec_object_value: myecvalue
+ceph_ec_object_name: myecobject

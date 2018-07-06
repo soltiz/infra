@@ -1,0 +1,26 @@
+#cloud-config
+
+packages:
+  - python
+  - python-apt
+
+
+users:
+  - name: {{access_user}}
+    groups:
+      - ubuntu
+      - adm
+      - dialout
+      - cdrom
+      - floppy
+      - sudo
+      - audio
+      - dip
+      - video
+      - plugdev
+      - netdev
+      - lxd
+    ssh-authorized-keys:
+      - {{access_key_content}}
+    sudo: ['ALL=(ALL) NOPASSWD:ALL']
+    shell: /bin/bash

@@ -1,0 +1,3 @@
+---
+# vars for vb-vm role
+hostname_interface: "{{default_interface_name|default('lo')}}"

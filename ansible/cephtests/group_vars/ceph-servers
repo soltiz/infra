@@ -1,0 +1,20 @@
+---
+
+# This is the descriptor of all clusters
+ceph_clusters:
+  ceph:
+    fsid: b5ee2a02-b92c-4829-8d43-0eb17314c0f6
+    production_address: 192.168.56.0/24
+    transport_address: 192.168.56.0/24
+    admins:
+      ceph_admin
+    monitors:
+      mon1:
+        id: 1
+        production_address: mon1
+    osds:
+      sto1:
+        id: 1
+        production_address: sto1
+        transport_address: sto1
+        device: /dev/sdb1

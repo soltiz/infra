@@ -1,0 +1,71 @@
+- hosts: vb_vms
+  gather_facts: no
+  vars: 
+    default_interface_name: "{{production_interface}}"
+  roles: [vb-vm]
+
+- hosts: ovh_vms
+  gather_facts: no
+  roles: [ovh-vm]
+  vars:
+    access_user: "{{punchplatform_deployment_user}}"
+
+- hosts: lmc_servers
+  roles:
+    - { "role" : "names-holder" , "names_ansible_group" : "lmc_servers" , "tags" : [ "prepare" , "names-holder" ] }
+
+- hosts: lmc_servers
+  become: yes
+  tags:
+    - targets
+    - deployer
+  tasks:
+    - name: create lmc group
+      group: name={{punchplatform_users_group}}
+    - name: ensure deployment user has lmc group as primary group
+      user: name={{punchplatform_deployment_user}} group={{punchplatform_users_group}} append=yes groups={{punchplatform_deployment_user}}
+
+
+
+- hosts: lmc_targets
+  become: yes
+  tags:
+  - targets
+  roles: 
+   - { "role":"lmc-target", "tags":["prepare"] }
+
+
+- hosts: lmc_deployers
+  tags: [deployer]
+  vars:
+    targets_ansible_group: lmc_targets
+  roles: 
+   - { "role":"lmc-confref-holder", "pp_conf_repository" : "{{pp_log_resources_repository}}"}
+   - role: nfs-server
+     become: yes
+     nfs_export_path: "{{remote_repository_dir | dirname}}"
+     nfs_export_allowed_hosts: "{{groups[targets_ansible_group]}}"
+     tags:
+       - nfs
+   - role: lmc-deployer
+     conf_ref_holder_hostname: "{{inventory_hostname}}"
+
+- hosts: lmc_targets
+  tags:
+  - targets
+  vars:
+    nfs_server: "{{groups['lmc_deployers'][0]}}"
+    nfs_dirname: "{{remote_repository_dir | dirname}}"
+    nfs_mount_point: "{{remote_repository_dir}}"
+    nfs_source_path: "{{remote_repository_dir}}"
+  roles: 
+   - role: nfs-mounter
+     become: yes
+     tags:
+       - nfs
+       - nfs-client
+   - role: pp-conf-clone-holder
+     become: yes
+     tags:
+       - update-config
+#   - { "role":"lmc-confref-holder", "pp_conf_repository" : "{{pp_log_resources_repository}}"}

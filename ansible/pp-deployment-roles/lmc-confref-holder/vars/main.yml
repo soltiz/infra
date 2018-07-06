@@ -1,0 +1,5 @@
+---
+#Variables for lmc-confref-holder role
+#UNUSED : remotecopy_of_original_repository: /tmp/tmp_conf_original
+
+reference_repository_branch_configfile: "{{remote_repository_dir}}/HEAD"

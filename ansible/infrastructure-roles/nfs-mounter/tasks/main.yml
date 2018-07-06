@@ -1,0 +1,8 @@
+---
+# Tasks for NFS mounter (client + mount point)
+
+- name: install nfs client libs
+  apt: name=nfs-common
+
+- name: ensure nfs filesystem is mounted
+  mount:  name={{nfs_mount_point}} fstype=nfs state=mounted opts=auto,rw src="{{nfs_server}}:{{nfs_source_path}}"

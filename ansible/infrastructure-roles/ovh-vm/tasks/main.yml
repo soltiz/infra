@@ -1,0 +1,112 @@
+---
+# Tasks for OVH VM
+
+#- name: authentify on Openstack API
+#  local_action: os_auth
+#  run_once: True
+
+- name: locate or create vm on OVH
+  local_action: os_server
+  args:
+    name: "{{inventory_hostname}}" 
+    image: "{{vm_image}}" 
+    key_name: ovh_cedric 
+    flavor: "{{vm_flavor}}"
+    user_data: "{{ lookup('template', 'cloud-config.j2') }}"
+    nics:
+      - net-name: Ext-Net
+      - net-name: MYNETWORK
+  register: result
+  tags:
+   - deploy-vms
+   - find-vms
+   - deploy-volumes
+
+- name: create volumes on OVH
+  local_action: os_volume
+  args:
+    display_name: "{{inventory_hostname}}-{{item.name}}"
+    volume_type: "{{item.type}}"
+    size: "{{item.size}}"
+  tags:
+    - deploy-vms
+    - deploy-volumes
+  with_items: "{{volumes | default ([])}}"
+
+- name: attach volumes on OVH
+  local_action: os_server_volume
+  args:
+    server: "{{inventory_hostname}}"
+    device: "{{item.device}}"
+    volume: "{{inventory_hostname}}-{{item.name}}"
+  tags:
+    - deploy-vms
+    - deploy-volumes
+  with_items: "{{volumes | default ([])}}"
+
+- name: retrieve vm public IP for ansible access
+  set_fact:
+    ansible_host: "{{result.openstack.public_v4}}"
+  tags:
+   - deploy-vms
+   - find-vms
+
+
+
+
+- name: Ensure directory exists for vb hosts resolution file
+  local_action: file name=/tmp/hosts state=directory
+
+
+
+# Note : vb_ip is defined by above virtualboxvm action
+- name: Record VM admin ip in /tmp/resolved_ips file
+  # here we loop because of a concurrency problem using lineinfile on local machine 
+  local_action: lineinfile dest=~/.hosts/resolved_ips create=yes line="{{ansible_host}} {{inventory_hostname}}" regexp=" {{inventory_hostname}}$"
+  register: result
+  until: not result.changed
+  retries: 30
+  delay: 1
+  tags:
+   - deploy-vms
+   - find-vms
+
+
+- debug: var=ansible_host
+
+- name: waiting for server to come back (may wait up to 5 minutes)
+  local_action: wait_for host={{ ansible_host }} port=22
+
+# wait for the vm to be available
+- name: gathering facts once the vm is reachable 
+  setup:
+  retries: 24
+  delay: 10
+
+# Then we set their internal name
+
+- name: ensure VM has chosen hostname
+  hostname: name="{{inventory_hostname}}"
+  become: True
+
+- name: ensure VM resolves its hostname with local interface
+  lineinfile:
+        dest: /etc/hosts
+        line: 127.0.0.1 localhost {{inventory_hostname}}
+        regexp: localhost
+  become: True
+
+#- name: install english locale
+#  locale_gen: name=en_GB.UTF-8 state=present
+#  become: True
+
+#- name: set locale
+#  copy: dest=/etc/default/locale content='LANG=en_GB.UTF-8\nLC_ALL=en_GB.UTF-8' 
+#  become: True
+
+
+- name: setup ens4 private network interface
+  copy: src=ens4.cfg dest=/etc/network/interfaces.d/ens4.cfg
+  notify: restart networking
+  become: True
+  when: ansible_distribution == "Ubuntu"

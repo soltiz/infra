@@ -1,0 +1,13 @@
+[vms:children]
+standalone_servers
+
+[standalone_servers]
+standalone
+
+
+[standalone_servers:vars]
+punchplatform_user=adm-infra
+punchplatform_standalone_archive=/home/cedric/lmc/maintainance/pp-packaging/punchplatform-packaging/punchplatform-standalone/target/punchplatform-standalone-3.0.18.zip
+vb_template="LMCUbuntu16"
+vm_memory=4096
+network_range="192.168.56.101-140"

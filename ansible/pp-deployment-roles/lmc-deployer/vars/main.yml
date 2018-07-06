@@ -1,0 +1,27 @@
+---
+# Vars for deployer role
+
+
+
+deployment_user_home: "/home/{{punchplatform_deployment_user}}"
+punchplatform_admin_user_profile: "{{deployment_user_home}}/.bashrc"
+
+
+punchplatform_install_container: "{{deployment_user_home}}"
+deployer_archive_basename: "{{punchplatform_local_deployer_archive | basename}}"
+deployer_version: "{{ (deployer_archive_basename | splitext ) [0] }}"
+installed_dir: "{{punchplatform_install_container}}/{{deployer_version}}"
+punchplatform_successful_unpack_marker:  "{{installed_dir}}/.unpack-marker"
+punchplatform_archive: "{{archives_dir}}/{{deployer_archive_basename}}"
+punchplatform_remote_deployer_archive: "/tmp/{{deployer_archive_basename}}"
+punchplatform_version: "{{deployer_version | regex_replace('^[^0-9]*-','') }}"
+
+
+punchplatform_deployer_bindir: "{{installed_dir}}/bin"
+
+deployment_conf_dir: "{{deployment_user_home}}/soc_conf"
+local_configuration_tarball: "/tmp/tmp_pp_log_resources.tgz"
+reference_repository_on_deployer_machine: "/data/git/soc_ref"
+uploaded_repository_copy_version_marker: "{{deployment_conf_dir}}/.initial_configuration_uploaded_revision"
+
+configuration_folders: "templates platforms tenants resources .gitignore"

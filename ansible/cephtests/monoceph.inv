@@ -1,0 +1,41 @@
+[vb-vms:children]
+ceph-servers
+lmc-server
+
+[lmc-server]
+lmc1
+
+[ceph-servers:children]
+ceph-monitors
+ceph-storage-nodes
+ceph-admin-nodes
+
+
+[ceph-servers:vars]
+ceph_local_cluster_data_dir=/data/ceph/deployment
+ceph_cluster_name=ceph
+ceph_monitors_group_name=ceph-monitors
+cluster_fsid = "b5ee2a02-b92c-4829-8d43-0eb17314c0f6"
+ceph_mon_public_network = 192.168.56.0/24
+ceph_osds_group_name = ceph-storage-nodes
+
+
+[vb-vms:vars]
+vb_template="LMCUbuntu16"
+network_range="192.168.56.101-140"
+default_interface_name=enp0s8
+online_install=False
+
+[ceph-monitors]
+mon1
+
+[ceph-storage-nodes]
+sto1 ceph_osd_id=1
+
+[ceph-storage-nodes:vars]
+ceph_osd_device = /dev/sdb1
+
+
+[ceph-admin-nodes]
+cephadmin
+

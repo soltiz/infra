@@ -1,0 +1,5 @@
+---
+#tasks for role lmc-conf-puller
+
+- name: provide information to login to remote git repo through ssh
+  

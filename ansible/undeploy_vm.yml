@@ -1,0 +1,8 @@
+
+# First we boot the vms
+
+- hosts: vms
+  gather_facts: no
+  tasks:
+    - local_action: virtualboxvm name="{{inventory_hostname}}" state=absent
+    

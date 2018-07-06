@@ -1,0 +1,35 @@
+- hosts: vb_vms
+  gather_facts: no
+  roles: [vb-vm]
+
+- hosts: ovh_vms
+  gather_facts: no
+  roles: [ovh-vm]
+  vars:
+    access_user: "{{punchplatform_deployment_user}}"
+
+- hosts: lmc_servers
+  roles: 
+    - { "role" : "names-holder" , "names_ansible_group" : "lmc_servers", "tags":["prepare"]}
+
+
+- hosts: lmc_servers
+  become: yes
+  tasks:
+    - name: create lmc group
+      group: name={{punchplatform_users_group}}
+    - name: ensure deployment user has lmc group as primary group
+      user: name={{punchplatform_deployment_user}} group={{punchplatform_users_group}} append=yes groups={{punchplatform_deployment_user}}
+
+- hosts: lmc_targets
+  roles: 
+   - { "role":"lmc-target", "tags":["prepare"] }
+   - { "role":"lmc-confref-holder", "pp_conf_repository" : "{{pp_log_resources_repository}}"}
+
+
+- hosts: lmc_deployers
+  tags: [deployer]
+  vars:
+    targets_ansible_group: lmc_targets
+  roles: 
+   - lmc-deployer

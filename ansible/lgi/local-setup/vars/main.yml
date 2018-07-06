@@ -1,0 +1,4 @@
+---
+
+myhosts: "{{ lookup('file', '/tmp/resolved_ips') }}"
+myhosts_lines: "{{ mycontents.split('\n')}}"

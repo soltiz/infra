@@ -1,0 +1,17 @@
+localhost ansible_ssh_host=localhost ansible_ssh_port=8022 ansible_ssh_user=root
+
+[integration:vars]
+ansible_ssh_user=ubuntu
+
+[integration]
+PDSELNLTRFWD01P ansible_ssh_host=149.202.191.183 hostname=PDSELNLTRFWD01P ip=192.168.1.102
+PDSELNLTRFWD02P ansible_ssh_host=149.202.191.181 hostname=PDSELNLTRFWD02P ip=192.168.1.101
+PDSELNLTRFWD03P ansible_ssh_host=149.202.191.186 hostname=PDSELNLTRFWD03P ip=192.168.1.103
+PDSELNLTRFWD0AP ansible_ssh_host=192.168.1.98 hostname=PDSELNLTRFWD0AP ip=192.168.1.80
+STANDALONE02I ansible_ssh_host=149.202.164.62 hostname=STANDALONE02I ip=192.168.1.104
+
+[vm]
+PDSELNLTRFWD01P
+PDSELNLTRFWD02P
+PDSELNLTRFWD03P
+STANDALONE02I

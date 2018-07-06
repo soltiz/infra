@@ -1,0 +1,33 @@
+[cephvms:children]
+	ceph-nodes
+
+[ceph-nodes:vars]
+	vb_template = "multi-ceph-template"
+	network_range = "10.0.4.2-253"
+	ntp_server = "10.0.4.1"
+	online_install = False
+	ceph_local_cluster_data_dir = ./cluster_data
+	ceph_cluster_name = myceph
+	ceph_monitors_group_name = ceph-monitors
+        ceph_osds_group_name = ceph-storage-nodes
+        ceph_clients_group_name = ceph-client-nodes
+
+[ceph-nodes:children]
+	ceph-admin-nodes
+	ceph-monitors
+	ceph-storage-nodes
+	ceph-client-nodes
+	
+[ceph-monitors]
+	cNode1
+	cNode2
+	cNode3
+
+[ceph-storage-nodes]
+	cNode1
+	cNode2
+
+[ceph-admin-nodes]
+
+[ceph-client-nodes]
+

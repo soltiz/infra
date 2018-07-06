@@ -1,0 +1,47 @@
+---
+- name: resolve OVH servers public and private IPs
+  local_action: shell
+      openstack server list -f yaml | yq -y '. | map({(.Name):(.Networks|capture(".*Ext-Net=(?<pub>[^,]*),.*MYNETWORK=(?<priv>.*)"))}) | add'  > /tmp/openstack_servers_interfaces
+  run_once: True
+  
+- include_vars: file=/tmp/openstack_servers_interfaces name=openstack_servers_interfaces
+- debug: 
+    msg: "The '{{names_ansible_group}}' group  contains the following servers: {{groups[names_ansible_group] }}"
+  run_once: True
+
+- name: deploy names of servers in /etc/hosts in association with their public ip
+  lineinfile:
+    dest=/etc/hosts
+    line="{{openstack_servers_interfaces[item].pub}} {{item}}.pub"
+  become: True
+  with_items: "{{groups[names_ansible_group]}}"
+
+
+- name: deploy names of servers in /etc/hosts in association with their private ip
+  lineinfile:
+    dest=/etc/hosts
+    line="{{openstack_servers_interfaces[item].priv}} {{item}}.priv"
+  become: True
+  with_items: "{{groups[names_ansible_group]}}"
+
+- name: deploy short names of servers in /etc/hosts in association with their private ip
+  lineinfile:
+    dest=/etc/hosts
+    line="{{openstack_servers_interfaces[item].priv}} {{item}}"
+  become: True
+  with_items: "{{groups[names_ansible_group]}}"
+  when: 'item != ansible_hostname'
+
+- name: Record VM public/private ips in /tmp/resolved_ips file
+  # here we loop because of a concurrency problem using lineinfile on local machine 
+  local_action: lineinfile dest=~/.hosts/resolved_ips create=yes line="{{openstack_servers_interfaces[inventory_hostname][item]}} {{inventory_hostname}}.{{item}}" regexp=" {{inventory_hostname}}.{{item}}$"
+  register: result
+  until: not result.changed
+  retries: 30
+  delay: 1
+  tags:
+   - deploy-vms
+   - find-vms
+  with_items:
+    - priv
+    - pub

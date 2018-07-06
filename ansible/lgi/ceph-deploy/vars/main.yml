@@ -1,0 +1,4 @@
+---
+
+mycontents: "{{ lookup('file', '/tmp/resolved_ips') }}"
+cluster_path: "~/my-cluster"

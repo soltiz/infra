@@ -1,0 +1,81 @@
+---
+# Tasks to deploy a virtualbox vm
+
+  
+- debug: var=hosts
+
+
+- name: Ensure VM is deployed and running
+  local_action: virtualboxvm name="{{inventory_hostname}}" state=running template="{{vb_template}}" nbcpu="{{vm_nbcpu | default (1)}}" memory="{{vm_memory | default (1024)}}" network_range="{{network_range}}"
+  tags:
+   - deploy-vms
+   - find-vms
+
+
+- name: Ensure directory exists for vb hosts resolution file
+  local_action: file name=/tmp/hosts state=directory
+
+
+
+
+# Note : vb_ip is defined by above virtualboxvm action
+- name: Record VM admin ip in ~/.hosts/resolved_ips file
+  # here we loop because of a concurrency problem using lineinfile on local machine 
+  local_action: lineinfile dest=~/.hosts/resolved_ips create=yes line="{{vb_ip}} {{inventory_hostname}}" regexp=" {{inventory_hostname}}$"
+  register: result
+  until: not result.changed
+  retries: 30
+  delay: 1
+  tags:
+   - deploy-vms
+   - find-vms
+
+
+# NOTA : you can use local resolution of VMs (and forward other requests) by running :
+# sudo dnsmasq  --hostsdir /tmp/hosts --server 192.168.0.254
+# AND putting 127.0.0.1 as server in your resolv.conf
+
+- name: apply admin ip for next tasks on host
+  set_fact: ansible_host={{vb_ip}}
+  tags:
+   - deploy-vms
+   - find-vms
+
+- name: print actual vm IP
+  debug: var=ansible_host
+  tags:
+     - find-vms
+
+# wait for the vm to be available
+- name: gathering facts once the vm is reachable (may wait up to 2 minute)
+  setup:
+  retries: 12
+  delay: 10
+
+# Then we set their internal name
+
+- name: associates hostname to chosen default interface name
+  lineinfile:
+        dest: /etc/hosts
+        line: '{{hostvars[inventory_hostname]["ansible_"+hostname_interface].ipv4.address}} {{inventory_hostname}}'
+        regexp: " {{inventory_hostname}}"
+  become: yes
+  when: hostname_interface !='lo'
+
+
+
+- name: ensure VM has chosen hostname
+  hostname: name="{{inventory_hostname}}"
+  become: yes
+
+
+
+- name: associates localhost to 127.0.0.1
+  lineinfile:
+        dest: /etc/hosts
+        line: 127.0.0.1 {%if hostname_interface == "lo"%}{{inventory_hostname}} {%endif%}localhost
+        regexp: localhost
+  become: yes
+
+#- name: align time
+#  shell: service ntp stop ; ntpdate 0.fr.pool.ntp.org ; service ntp start

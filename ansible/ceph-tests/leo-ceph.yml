@@ -1,0 +1,69 @@
+---
+
+- hosts: cephvms
+  gather_facts: no
+  tags: "infra"
+  roles:
+    - vb-vm
+
+- hosts: localhost
+  tags: "infra"
+  become: yes
+  roles:
+    - local-setup
+
+- hosts: cephvms
+  tags: "infra"
+  tasks:
+    - name: deactivate sshd dns resolution
+      become: yes
+      lineinfile: dest=/etc/ssh/sshd_config line="UseDNS no"
+      register: ssh_config
+
+    - name: restart ssh
+      become: yes
+      service: name=ssh state=restarted
+      when: ssh_config | changed
+
+- hosts: cephvms
+  tags: "infra"
+  become: yes
+  roles:
+   - full-updated-apt
+
+- hosts: cephvms
+  tags: "infra"
+  roles:
+    - ceph-nodes-setup
+
+- hosts: ceph-admin-nodes
+  tags: "ceph_admin"
+  become: yes
+  roles:
+   - ceph-admin-node
+
+- hosts: ceph-monitors
+  tags: "ceph_mon"
+  become: yes
+  roles:
+   - ceph-monitor
+
+- hosts: ceph-storage-nodes
+  tags: "ceph_osd"
+  become: yes
+  roles:
+   - ceph-storage-node
+
+- hosts: ceph-admin-nodes
+  tags: "ceph_client"
+  become: yes
+  roles:
+   - ceph-generate-client
+
+- hosts: ceph-client-nodes
+  tags: "ceph_client"
+  become: yes
+  roles:
+   - ceph-configure-client
+   - ceph-client-test
+

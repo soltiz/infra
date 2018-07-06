@@ -1,0 +1,20 @@
+[vb-vms:children]
+pacemaker-servers
+
+[vb-vms:vars]
+vb_template="LMCUbuntu16"
+network_range="192.168.56.101-140"
+
+[pacemaker-servers]
+alpha
+beta
+
+[pacemaker-servers:vars]
+corosync_keys_directory = /tmp
+corosync_cluster_id = myCluster
+corosync_bind_interface = enp0s8
+
+
+
+
+  # the network interface used by corosync cluster for discussing...

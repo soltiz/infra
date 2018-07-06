@@ -1,0 +1,179 @@
+---
+# tasks for LMC deployer
+
+- name: apt prerequisites
+  apt: name={{item}} update_cache=yes
+  become: True
+  with_items:
+   - zip
+   - python
+   - git-core
+   - build-essential 
+   - libssl-dev 
+   - libffi-dev 
+   - python-dev 
+   - python-pip
+   - sshpass
+   - jq
+   - ceph
+
+- name: ensure ansible is installed with proper version
+  pip: name=ansible version=2.2.0
+  changed_when: false
+  become: True
+  environment:
+    http_proxy: "{{http_proxy}}"
+    https_proxy: "{{http_proxy}}"
+
+- name: ensure common users group exist for users that will update the punchplatform reference configuration git repository
+  group: name={{punchplatform_users_group}}
+  become: True
+
+- name: ensure deployment user has punchplatform configuration group as primary group
+  user: name={{punchplatform_deployment_user}} group={{punchplatform_users_group}}
+  become: True
+
+- name: check if remote punchplatform distrib version marker indicates a previous successful unpacking (this is an optimization to prevent uploading if unarchiving of same version has already succeeded)
+  shell: "cat {{punchplatform_successful_unpack_marker}} 2>/dev/null"
+  register: check_result
+  changed_when: False
+  failed_when: False
+  check_mode: no
+
+- name: upload punchplatform deployer 
+  copy:
+    src: "{{punchplatform_local_deployer_archive}}"
+    dest: "{{punchplatform_remote_deployer_archive}}"
+  when: check_result.stdout != deployer_version
+  
+- name: unarchive punchplatform distrib 
+  shell: unzip -o "{{punchplatform_remote_deployer_archive}}" -d "{{punchplatform_install_container}}"
+  when: check_result.stdout != deployer_version
+  register: unarchive_result
+
+
+- name: mark punchplatform archive successful unpacking to avoid any new unarchiving 
+  copy: dest={{punchplatform_successful_unpack_marker}} content={{deployer_version}}
+  when: unarchive_result|success
+
+- name: remove remote copy of distribution if it has already been successfully inarchived
+  file: dest="{{punchplatform_remote_deployer_archive}}" state=absent
+  when: ( unarchive_result|success ) or (check_result.stdout == deployer_version)
+
+
+- name: check local sample configuration repository version
+  local_action: command git rev-parse HEAD
+  register: local_revision
+  changed_when: false
+
+- name: check remote version of copied repository
+  shell: 'cat {{uploaded_repository_copy_version_marker}} || echo ""'
+  register: remote_configuration_uploaded_revision
+  changed_when: false
+
+- name: prepare deployment configuration upload tarball (for remote copy efficiency)
+  local_action: command tar -czf {{local_configuration_tarball}} {{configuration_folders}}
+  args:
+    chdir: "{{pp_log_resources_repository}}"
+  when: "{{local_revision.stdout != remote_configuration_uploaded_revision.stdout}}"
+
+- name: create target configuration directory
+  file: state=directory dest={{deployment_conf_dir}}
+
+- name: upload initial configuration tarball
+  unarchive: dest={{deployment_conf_dir}} src={{local_configuration_tarball}}
+  when: "{{local_revision.stdout != remote_configuration_uploaded_revision.stdout}}"
+
+- name: record initial configuration remote version
+  copy: dest={{uploaded_repository_copy_version_marker}} content={{local_revision.stdout}}
+
+- name: initialize git directory
+  shell: git init {{deployment_conf_dir}}
+  args:
+    creates: "{{deployment_conf_dir}}/.git"
+
+
+- name: configure git user email for deployment user
+  git_config: name=user.email value="{{punchplatform_deployment_user}}@{{ansible_hostname}}" scope=global
+
+- name: configure git user name for deployment user
+  git_config: name=user.name value={{punchplatform_deployment_user}}@{{ansible_hostname}} scope=global
+
+- name: check uncomitted files
+  command: git status -s chdir={{deployment_conf_dir}}
+  tags: [ update-config ]
+  register: uncommitted
+  changed_when: '{{uncommitted.stdout | length > 2}}'
+  check_mode: no
+
+- name: generate platform files 
+  template: src={{pp_log_resources_repository}}/platforms/{{punchplatform_platform_dirname}}/{{punchplatform_platform_dirname}}_{{item}}.j2 dest={{deployment_conf_dir}}/platforms/{{punchplatform_platform_dirname}}/{{punchplatform_platform_dirname}}_{{item}}
+  tags: [ update-config ]
+  with_items:
+    - punchplatform.properties
+    - punchplatform-deployment.settings
+
+
+- name: create links to platform-specific files
+  file: state=link src={{deployment_conf_dir}}/platforms/{{punchplatform_platform_dirname}}/{{punchplatform_platform_dirname}}_{{item}} dest={{deployment_conf_dir}}/{{item}}
+  with_items:
+    - punchplatform.properties
+    - punchplatform-deployment.settings
+
+- name: commit files
+  shell: 'git add . && git commit -m "ansible automatic commit"'
+  tags: [ update-config ]
+  args:
+    chdir: "{{deployment_conf_dir}}"
+  when: "{{uncommitted|changed}}"
+
+- name: check if "ref" remote is defined
+  command: git remote get-url ref
+  args:
+    chdir: "{{deployment_conf_dir}}"
+  register: current_ref_remote_definition
+  check_mode: no
+  failed_when: False
+  changed_when: "{{ remote_repository_dir not in current_ref_remote_definition.stdout }}"
+
+- name: define "ref" remote
+  command: git remote add ref {%if conf_ref_holder_hostname != inventory_hostname%}{{conf_ref_holder_hostname}}:{%endif%}{{remote_repository_dir}}
+  args:
+    chdir: "{{deployment_conf_dir}}"
+  when: "{{current_ref_remote_definition.changed}}"
+
+- name: ensure ssh config dir exists for deployment user
+  file: state=directory name="{{deployment_user_home}}/.ssh"
+
+- name: install ssh key for deployment
+  copy: src={{item}} dest="{{deployment_user_home}}/.ssh/" mode=400
+  with_items:
+    - "lmc-deployer"
+    - "lmc-deployer.pub"
+
+- name: create ssh config file for deployment user
+  template: src=ssh_config.j2 dest="{{deployment_user_home}}/.ssh/config" mode=400
+
+- name: test ssh remote connection
+  command: ssh -o StrictHostKeyChecking=no {{item}}
+  with_items: "{{groups[targets_ansible_group]}}"
+  register: ssh_check
+  changed_when: '{{"Permanently added" in ssh_check.stdout}}'
+
+- name: update remote configuration reference
+  shell: git branch   {{pp_conf_branch}} 2>/dev/null ;  git checkout {{pp_conf_branch}} && git push ref {{pp_conf_branch}}
+  tags: [ update-config ]
+  args:
+    chdir: "{{deployment_conf_dir}}"
+
+- name: add punch platform deployer bin to admin user path
+  lineinfile:
+    owner={{punchplatform_deployment_user}}
+    dest="{{punchplatform_admin_user_profile}}"
+    regexp="{{ item.regexp }}"
+    line="{{ item.line }}"
+  with_items:
+    - { regexp: '^export PATH=.*[pP][uU][nN][cC][hH][pP]', line: 'export PATH=$PATH:{{punchplatform_deployer_bindir}}' }
+    - { regexp: '^export PUNCHPLATFORM_CONF_DIR=', line: 'export PUNCHPLATFORM_CONF_DIR={{deployment_conf_dir}}' }
+    #- { regexp: '^export PUNCHPLATFORM_LOG_DIR=', line: 'export PUNCHPLATFORM_LOG_DIR={{punchplatform_user_logs_dir}}' }
+    #- { regexp: 'source _punchplatform-bash-completion.sh', line: 'source _punchplatform-bash-completion.sh' }

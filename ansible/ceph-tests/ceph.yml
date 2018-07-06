@@ -1,0 +1,50 @@
+---
+
+- hosts: vb-vms
+  gather_facts: no
+  roles:
+   - vb-vm
+
+- hosts: cephvms
+  tasks:
+    - name: set hostname
+      hostname: name={{inventory_hostname}}
+    
+    - name: associate hostname to local interface in /etc/hosts
+      replace: dest=/etc/hosts regexp=tower replace={{inventory_hostname}}
+
+    - name: ensure hostname remains after reboot
+      copy: dest=/etc/hostname content={{inventory_hostname}}
+
+    - name: deactivate sshd dns resolution
+      lineinfile: dest=/etc/ssh/sshd_config line="UseDNS no"
+      register: ssh_config
+
+    - name: restart ssh
+      service: name=ssh state=restarted
+      when: ssh_config | changed
+
+    - name: ensure apt uses cache
+      replace: dest=/etc/apt/apt.conf.d/03proxy regexp=3128 replace=3142
+
+    - name: align time
+      shell: service ntp stop ; ntpdate 0.fr.pool.ntp.org ; service ntp start
+      
+- hosts: ceph-nodes
+  roles:
+   - full-updated-apt
+
+- hosts: ceph-admin-nodes
+  tags: ceph_admin
+  roles:
+   - ceph-admin-node
+
+- hosts: ceph-monitors
+  tags: ceph_mon
+  roles:
+   - ceph-monitor
+
+- hosts: ceph-storage-nodes
+  tags: ceph_osd
+  roles:
+   - ceph-storage-node

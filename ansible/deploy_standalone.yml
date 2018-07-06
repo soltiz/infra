@@ -1,0 +1,8 @@
+- hosts: standalone_servers
+  gather_facts: no
+  vars:
+    ansible_user: "{{punchplatform_user}}"
+  roles: 
+    - { "role": "vb-vm", "tags" : ["deploy-vms"] }
+    - standalone
+

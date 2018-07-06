@@ -1,0 +1,26 @@
+---
+- hosts: vb-vms
+  gather_facts: no
+  roles: [vb-vm]
+
+
+- hosts: pacemaker-servers
+  become: yes
+  vars:
+    corosync_cluster_nodes: "{{groups['pacemaker-servers']}}"
+    corosync_managed_services:
+      - apache2
+    virtual_ips:
+      - 192.168.56.200    
+  roles: 
+    - full-updated-apt
+    - apache
+    - corosync
+    - supervisor
+  tasks:
+   - copy: dest=/etc/supervisor/conf.d/fixed.conf content='[program:fixed]\ncommand=bash -c "sleep 100000"'
+     notify: reload supervisord
+   - copy: dest=/etc/supervisor/conf.d/controlled.conf content='[program:controlled]\ncommand=bash -c "sleep 100000"'
+     notify: reload supervisord
+
+

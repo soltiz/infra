@@ -1,0 +1,26 @@
+---
+
+- hosts: localhost
+  tasks:
+  - name: "Build hosts file"
+    lineinfile: dest=/etc/hosts regexp='.*{{ item }}$' line="{{ hostvars[item].ansible_ssh_host }} {{item}}" state=present
+    when: hostvars[item].ansible_ssh_host is defined
+    with_items: groups['all']
+
+- hosts: vm
+  sudo: yes
+  tasks:
+  - name: "Build hosts file"
+    lineinfile: dest=/etc/hosts regexp='.*{{ item }}$' line="{{ hostvars[item].ip }} {{item}}" state=present
+    when: hostvars[item].ip is defined
+    with_items: groups['integration']
+
+  - name: ensure the hostname is correctly set
+    hostname: name={{ hostname }}
+
+  - name: add the configuration of th private network interface
+    copy: src=local_network.cfg dest=/etc/network/interfaces.d/local_network.cfg
+
+  - name: set the private network interface up
+    shell: ifup ens4
+

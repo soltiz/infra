@@ -1,0 +1,18 @@
+
+# First we boot the vms
+
+- hosts: vms
+  gather_facts: no
+  roles:
+    - vb-vm
+
+#- hosts: vms
+#  gather_facts: no
+#  become: yes
+#  tasks:
+#    - local_action: lineinfile dest=/etc/hosts line="{{vb_ip}} {{inventory_hostname}}" regexp="^{{vb_ip}}"
+
+#- hosts: vms
+#  tasks:    
+#    - debug: var=ansible_hostname
+#    - local_action: virtualboxvm name="{{inventory_hostname}}" state=absent

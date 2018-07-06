@@ -1,0 +1,46 @@
+---
+# Tasks to deploy ceph, using ceph-deploy utility
+
+# We have to copy hostnames-IP into /etc/hosts of adminNode.
+# Be careful: it's possible here only if /tmp/resolved_ips exists !!!
+# (So only if vm-vm role has been played before)
+- name: Add/Update mappings to /etc/hosts
+  become: yes
+  blockinfile:
+    dest: /etc/hosts
+    block: |
+      {{ mycontents }}
+    marker: "# {mark} ANSIBLE MANAGED BLOCK : Ceph Hostnames"
+
+- name: Create cluster directory
+  file: path={{ cluster_path }} state=directory mode=0755
+
+- name: Wait a few seconds before to create the Ceph cluster
+  pause: seconds=10
+
+# Create the cluster. Please pay attention: you need to ssh all machines
+# from admin machine before.
+- name: Create the cluster
+  command: ceph-deploy new {{ mainMonitor }}
+  args:
+    chdir: "{{ cluster_path }}"
+
+- name: Change the default number of replicas
+  lineinfile:
+    line: "osd pool default size = 2"
+    dest: "{{ cluster_path }}/ceph.conf"
+
+# Install Ceph on all nodes. Please pay attention: we dont't install it
+# on groups.mons because mons=osds in our configuration, but it
+# could be not.
+# TODO: improve this step.
+- name: Install Ceph on all nodes
+  command: ceph-deploy install {{ item }}
+  args:
+    chdir: "{{ cluster_path }}"
+  with_items: groups.admins + groups.osds
+
+- name: Add the initial monitor(s) and gather the keys
+  command: ceph-deploy mon create-initial
+  args:
+    chdir: "{{ cluster_path }}"

@@ -1,0 +1,35 @@
+[vb-vms:children]
+cephvms
+
+[cephvms:children]
+	ceph-nodes
+
+[ceph-nodes:vars]
+	ceph_cluster_id = b5ee2a02-b92c-4829-8d43-0eb17314c0f6
+	ceph_local_cluster_data_dir = ./samples/ceph_test_inventory/cluster_data
+	ceph_cluster_name = myceph
+	ceph_mon_public_network = 192.168.56.0/24
+	ceph_monitors_group_name = ceph-monitors
+    ceph_osds_group_name = ceph-storage-nodes
+
+[ceph-nodes:children]
+	ceph-admin-nodes
+	ceph-monitors
+	ceph-storage-nodes
+	
+[ceph-monitors]
+	ceph1 ceph_mon_bind_address=ceph1 ceph_mon_id=1
+	ceph2 ceph_mon_bind_address=ceph2 ceph_mon_id=2
+	ceph3 ceph_mon_bind_address=ceph3 ceph_mon_id=3
+
+[ceph-storage-nodes]
+	ceph2 ceph_osd_id=1 ceph_osd_bind_address=ceph2
+	ceph3 ceph_osd_id=0 ceph_osd_bind_address=ceph3
+	ceph5 ceph_osd_id=2 ceph_osd_bind_address=ceph5
+
+[ceph-storage-nodes:vars]
+	ceph_osd_device = /dev/mapper/tower--vg-data
+
+
+[ceph-admin-nodes]
+	ceph4

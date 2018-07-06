@@ -1,0 +1,19 @@
+---
+- hosts: vb_vms
+  gather_facts: no
+  vars: 
+    default_interface_name: "{{production_interface}}"
+  roles: [vb-vm]
+
+- hosts: metrics_pushers
+  tasks:
+    - group: name={{punchplatform_group}}
+  tags:
+    - metricbeat
+    - monitoring
+
+- hosts: metricbeat_pushers
+  roles: [metricbeat]
+  tags:
+   - metricbeat
+   - monitoring

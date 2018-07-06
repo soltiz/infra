@@ -1,0 +1,73 @@
+
+# First we boot the vms
+
+- hosts: vms
+  gather_facts: no
+  tags:
+    - vms
+  roles:
+    - ovh-vm
+    - { "role": "ovh-names-holder", "tags": [dns] }
+
+
+#- hosts: vms
+#  gather_facts: no
+#  become: yes
+#  tasks:
+#    - local_action: lineinfile dest=/etc/hosts line="{{vb_ip}} {{inventory_hostname}}" regexp="^{{vb_ip}}"
+
+#- hosts: vms
+#  tasks:    
+#    - debug: var=ansible_hostname
+#    - local_action: virtualboxvm name="{{inventory_hostname}}" state=absent
+
+#- hosts: vms
+#  become: true
+#  tags: 
+#    - time
+#  tasks:
+#    - name: synchronize vm time
+#      shell: ntpdate host
+#      become: true
+
+- hosts: vms
+  become: true
+  tags:
+    - prepare
+  tasks:
+    - package: name={{item}} state=present
+      with_items:
+        - xfsprogs
+        
+
+    - group: name=lmc
+
+    - user: name={{item}} group=lmc
+      with_items: 
+        - lmc
+        - lmcadmin
+
+    - name: adm-infra
+      user: name=adm-infra group=lmc groups=sudo
+
+    - authorized_key:  key="{{ lookup('file', '/home/cedric/.ssh/id_rsa.pub') }}" user=adm-infra
+
+    - file: path={{item}} state=directory owner=lmc
+      with_items:
+        - /data
+        - /data/opt
+        - /var/log/punchplatform
+
+    #- command: creates=/data/cephdevice dd if=/dev/zero of=/data/cephdevice count=1000000000 iflag=count_bytes
+
+#    - filesystem: dev=/dev/sdb fstype=xfs
+
+    - name: restrict updatedb to avoid indexing ceph storage
+      lineinfile: dest=/etc/updatedb.conf regexp=PRUNEPATHS line='PRUNEPATHS="/tmp /var/spool /media /home/.ecryptfs /var/lib/schroot /var/lib/ceph"'
+      when: ansible_distribution == 'Ubuntu'
+
+
+    - name: desactivate centos firewall
+      become: True
+      systemd: name=firewalld state=stopped enabled=no
+      when: ansible_distribution == 'CentOS'

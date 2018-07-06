@@ -1,0 +1,13 @@
+---
+# Variables for NFS Server export role (role usable multiple times on a same)
+
+#Required external variables : 
+
+#    nfs_export_path : path of directory to export from server
+#    nfs_export_allowed_hosts : array of hostnames of machines allowed to access. These hostnames must be resolved as the incoming IP, when resolving from the server"
+
+
+
+# Internal variables
+
+nfs_export_container: "{{nfs_export_path | dirname()}}"

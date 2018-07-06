@@ -1,0 +1,5 @@
+---
+#Variables for rolt OVH-VM
+
+
+access_key_content: "{{ lookup('file', access_key) }}"

@@ -1,0 +1,173 @@
+---
+# Tasks to deploy a ceph client and proceed some operations
+
+################################################
+# Install ceph keys and set pg and pgp numbers #
+################################################
+
+- name: copy client.admin.keyring on remote
+  copy:
+    src: "{{ ceph_local_cluster_data_dir }}/{{ ceph_cluster_name }}.client.admin.keyring"
+    dest: "/etc/ceph/{{ ceph_cluster_name }}.client.admin.keyring"
+
+- name: increase number of pg (partition groups)
+  shell: ceph osd pool set rbd pg_num 128 --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+  run_once: true
+  register: pg_num_increase_result
+  changed_when: "'set pool' in pg_num_increase_result.stdout"
+  failed_when: "'Error EEXIST' in pg_num_increase_result.stderr"
+
+- name: increase number of pgp
+  shell: ceph osd pool set rbd pgp_num 128 --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+  run_once: true
+  register: pgp_num_increase_result
+  changed_when: "'set pool' in pgp_num_increase_result.stdout"
+  failed_when: "'Error EEXIST' in pgp_num_increase_result.stderr"
+
+##########################################################
+# Create a block device, write a filesystem and mount it #
+##########################################################
+
+- name: create a block device image
+  shell: rbd create {{ ceph_image }} --size 4096 --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+  run_once: true
+  register: rbd_image_creation_result
+  changed_when: "'already exists' not in rbd_image_creation_result.stderr"
+  failed_when: "('create error' in rbd_image_creation_result.stderr) and ('rbd: create error: (17) File exists' not in rbd_image_creation_result.stderr)"
+
+- name: check /dev/rbd0 exists
+  stat: path=/dev/rbd0
+  register: stat_rbd0
+
+- name: map the image to the block device
+  become: yes
+  shell: rbd map {{ ceph_image }} --name client.admin --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+  run_once: true
+  register: rbd_map_result
+  changed_when: "'already used' not in rbd_map_result.stderr"
+  failed_when: "'error' in rbd_map_result.stderr"
+  when: stat_rbd0.stat.exists == false
+
+- name: create a filesystem on block device
+  become: yes
+  filesystem:
+    fstype: xfs
+    device: "{{ ceph_device }}"
+  run_once: true
+
+- name: create ceph-block-device directory
+  become: yes
+  file:
+    path: "{{ ceph_mount_path }}"
+    owner: "{{ ansible_user }}"
+    state: directory
+
+- name: mount the filesystem
+  become: yes
+  mount:
+    src: "{{ ceph_device }}"
+    state: mounted
+    name: "{{ ceph_mount_path }}"
+    fstype: xfs
+
+##############################################
+# Create a replicated pool and add an object #
+##############################################
+
+
+- name: create a replicated pool
+  shell: ceph osd pool create {{ ceph_clients[item]['pool_name'] }} 128 --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+  run_once: true
+  register: pool_creation_result
+  changed_when: "'already exists' not in pool_creation_result.stderr"
+  failed_when: "'rror' in pool_creation_result.stderr"
+
+- name: check pool has successfully been added
+  shell: ceph osd lspools --cluster {{ ceph_cluster_name }} --user {{ ansible_hostname }}
+  register: pool_list_result
+  changed_when: false
+  failed_when: "'{{ ceph_clients[item]['pool_name'] }}' not in pool_list_result.stdout"
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+- name: set pool quotas
+  shell: ceph osd pool set-quota {{ ceph_clients[item]['pool_name'] }} max_objects 100 --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+  register: set_quotas_result
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+- name: create a dummy file
+  lineinfile:
+    line: "{{ ceph_object_value }}"
+    dest: "{{ ceph_object_file }}"
+    state: present
+    create: yes
+
+- name: write the file in replicated pool as an object
+  shell: rados -p {{ ceph_clients[item]['pool_name'] }} put {{ ceph_object_name }} {{ ceph_object_file }} --cluster {{ ceph_cluster_name }} --user {{ ansible_hostname }}
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+- name: check object has successfully been added
+  shell: rados -p {{ ceph_clients[item]['pool_name'] }} ls --cluster {{ ceph_cluster_name }} --user {{ ansible_hostname }}
+  register: object_list_result
+  changed_when: false
+  failed_when: "'{{ ceph_object_name }}' not in object_list_result.stdout"
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+- name: remove replicated pool
+  shell: ceph osd pool delete {{ ceph_clients[item]['pool_name'] }} {{ ceph_clients[item]['pool_name'] }} --yes-i-really-really-mean-it --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+  register: pool_deletion_result
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+###################################################
+# Create an erasure-coding pool and add an object #
+###################################################
+
+# Create an erasure-coding profile. Useless in this case because it's the same
+# as default profile.
+- name: create erasure-coding profile
+  shell: ceph osd erasure-code-profile set myprofile k=2 m=1 ruleset-failure-domain=host jerasure-per-chunk-alignment=true --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+
+- name: create an erasure-coding pool
+  shell: ceph osd pool create {{ ceph_clients[item]['pool_name'] }} 128 128 erasure myprofile --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+  run_once: true
+  register: ec_pool_creation_result
+  changed_when: "'already exists' not in ec_pool_creation_result.stderr"
+  failed_when: "'rror' in ec_pool_creation_result.stderr"
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+- name: check erasure-coding pool has successfully been added
+  shell: ceph osd lspools --cluster {{ ceph_cluster_name }} --user {{ ansible_hostname }}
+  register: ec_pool_list_result
+  changed_when: false
+  failed_when: "'{{ ceph_clients[item]['pool_name'] }}' not in ec_pool_list_result.stdout"
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+- name: set pool quotas
+  shell: ceph osd pool set-quota {{ ceph_clients[item]['pool_name'] }} max_objects 100 --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+  register: set_quotas_result
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+- name: create a dummy file
+  lineinfile:
+    line: "{{ ceph_ec_object_value }}"
+    dest: "{{ ceph_ec_object_file }}"
+    state: present
+    create: yes
+
+- name: write the file in erasure-coding pool as an object
+  shell: rados -p {{ ceph_clients[item]['pool_name'] }} put {{ ceph_ec_object_name }} {{ ceph_ec_object_file }} --cluster {{ ceph_cluster_name }} --user {{ ansible_hostname }}
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+- name: check object has successfully been added
+  shell: rados -p {{ ceph_clients[item]['pool_name'] }} ls --cluster {{ ceph_cluster_name }} --user {{ ansible_hostname }}
+  register: object_list_result
+  changed_when: false
+  failed_when: "'{{ ceph_ec_object_name }}' not in object_list_result.stdout"
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
+- name: remove erasure-coding pool
+  shell: ceph osd pool delete {{ ceph_clients[item]['pool_name'] }} {{ ceph_clients[item]['pool_name'] }} --yes-i-really-really-mean-it --cluster {{ ceph_cluster_name }} --keyring {{ ceph_keyring }}
+  register: ecpool_deletion_result
+  with_items: "{{ groups[ceph_clients_group_name] }}"
+
